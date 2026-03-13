@@ -197,15 +197,15 @@
         
         <div id="ctrls">
             <div class="joy">
-                <div class="j-btn" style="grid-area: u" onpointerdown="startMove(0,-1, this)" onpointerup="stopMove(this)" onpointerleave="stopMove(this)">▲</div>
-                <div class="j-btn" style="grid-area: l" onpointerdown="startMove(-1,0, this)" onpointerup="stopMove(this)" onpointerleave="stopMove(this)">◀</div>
-                <div class="j-btn" style="grid-area: r" onpointerdown="startMove(1,0, this)" onpointerup="stopMove(this)" onpointerleave="stopMove(this)">▶</div>
-                <div class="j-btn" style="grid-area: d" onpointerdown="startMove(0,1, this)" onpointerup="stopMove(this)" onpointerleave="stopMove(this)">▼</div>
+                <div class="j-btn" style="grid-area: u" onpointerdown="startMove(0,-1, this)" onpointerup="stopMove(this)" onpointerleave="stopMove(this)">▲<span style="font-size:10px; position:absolute; bottom:4px;">W</span></div>
+                <div class="j-btn" style="grid-area: l" onpointerdown="startMove(-1,0, this)" onpointerup="stopMove(this)" onpointerleave="stopMove(this)">◀<span style="font-size:10px; position:absolute; bottom:4px;">A</span></div>
+                <div class="j-btn" style="grid-area: r" onpointerdown="startMove(1,0, this)" onpointerup="stopMove(this)" onpointerleave="stopMove(this)">▶<span style="font-size:10px; position:absolute; bottom:4px;">D</span></div>
+                <div class="j-btn" style="grid-area: d" onpointerdown="startMove(0,1, this)" onpointerup="stopMove(this)" onpointerleave="stopMove(this)">▼<span style="font-size:10px; position:absolute; bottom:4px;">S</span></div>
             </div>
             <div class="side-btns">
-                <button class="round-btn" onclick="openCraft()">裝備</button>
-                <button class="round-btn" onclick="openStatus()">狀態</button>
-                <button class="round-btn" style="grid-column: span 2; background:#8e44ad; border-color:#9b59b6; box-shadow: 0 3px #6c3483;" onclick="openSystem()">系統</button>
+                <button class="round-btn" onclick="openCraft()">裝備 (E)</button>
+                <button class="round-btn" onclick="openStatus()">狀態 (T)</button>
+                <button class="round-btn" style="grid-column: span 2; background:#8e44ad; border-color:#9b59b6; box-shadow: 0 3px #6c3483;" onclick="openSystem()">系統 (M)</button>
             </div>
         </div>
     </div>
@@ -228,10 +228,10 @@
         </div>
         <div id="log"></div>
         <div class="btns" id="battle-btns">
-            <button onclick="battleAction('atk')">揮劍</button>
-            <button onclick="openSkills()" style="background:#8e44ad; border-bottom-color:#5b2c6f;">技能</button>
-            <button onclick="openItems()" style="background:#27ae60; border-bottom-color:#1e8449;">道具</button>
-            <button onclick="battleAction('run')" style="background:#7f8c8d; border-bottom-color:#2c3e50;">逃跑</button>
+            <button onclick="battleAction('atk')">揮劍 (J)</button>
+            <button onclick="openSkills()" style="background:#8e44ad; border-bottom-color:#5b2c6f;">技能 (K)</button>
+            <button onclick="openItems()" style="background:#27ae60; border-bottom-color:#1e8449;">道具 (I)</button>
+            <button onclick="battleAction('run')" style="background:#7f8c8d; border-bottom-color:#2c3e50;">逃跑 (L)</button>
         </div>
     </div>
 </div>
@@ -343,7 +343,7 @@
 
     function openSystem() {
         let html = `
-            <button onclick="saveGame()" style="width:100%; margin-bottom:10px; background:#2980b9;">儲存進度</button>
+            <button onclick="saveGame()" style="width:100%; margin-bottom:10px; background:#2980b9;">儲存進度 (S)</button>
             <button onclick="location.reload()" style="width:100%; background:#c0392b;">回主畫面 (未存檔進度將遺失)</button>
         `;
         showCustomModal("系統選單", html, [{t:"關閉", f:closeMsg}]);
@@ -898,13 +898,123 @@
     function showMsg(title, txt, cb) { showCustomModal(title, txt, [{t:"確定", f: cb || (()=>{}) }]); }
     function closeMsg() { document.getElementById('msg-box').style.display='none'; }
     function addLog(m, c="#fff") { const l = document.getElementById('log'); l.innerHTML += `<div style="color:${c}">> ${m}</div>`; l.scrollTop = l.scrollHeight; }
-    function showDmgVisual(v, el, color) { 
-        if(!el) return; const r = el.getBoundingClientRect(); 
-        const popup = document.createElement('div'); popup.className='dmg-popup'; popup.innerText="-"+v; 
-        popup.style.left=(r.left + r.width/2 - 15)+'px'; popup.style.top=(r.top)+'px'; popup.style.color=color; 
+    function showDmgVisual(v, el, color) {
+        if(!el) return; const r = el.getBoundingClientRect();
+        const popup = document.createElement('div'); popup.className='dmg-popup'; popup.innerText="-"+v;
+        popup.style.left=(r.left + r.width/2 - 15)+'px'; popup.style.top=(r.top)+'px'; popup.style.color=color;
         document.body.appendChild(popup); setTimeout(()=>popup.remove(), 800);
         document.getElementById('game').classList.add('shake'); setTimeout(()=>document.getElementById('game').classList.remove('shake'), 200);
     }
+
+    // --- 鍵盤控制 (WASD / 方向鍵) ---
+    let keyMoveTimer = null;
+    let currentKeyBtn = null;
+
+    function simulateBtnPress(dx, dy) {
+        // 找到對應方向的虛擬按鈕並觸發視覺效果
+        const btns = document.querySelectorAll('.j-btn');
+        let targetBtn = null;
+        for (let btn of btns) {
+            if (dx === 0 && dy === -1 && btn.innerText === '▲') targetBtn = btn;
+            else if (dx === 0 && dy === 1 && btn.innerText === '▼') targetBtn = btn;
+            else if (dx === -1 && dy === 0 && btn.innerText === '◀') targetBtn = btn;
+            else if (dx === 1 && dy === 0 && btn.innerText === '▶') targetBtn = btn;
+        }
+        if (targetBtn) {
+            if (currentKeyBtn && currentKeyBtn !== targetBtn) {
+                currentKeyBtn.classList.remove('pressed');
+            }
+            currentKeyBtn = targetBtn;
+            currentKeyBtn.classList.add('pressed');
+        }
+        startMove(dx, dy, targetBtn || { classList: { add: () => {}, remove: () => {} } });
+    }
+
+    function simulateBtnRelease() {
+        if (currentKeyBtn) {
+            currentKeyBtn.classList.remove('pressed');
+        }
+        if (keyMoveTimer) { clearInterval(keyMoveTimer); keyMoveTimer = null; }
+        currentKeyBtn = null;
+    }
+
+    document.addEventListener('keydown', (e) => {
+        // 防止在輸入框中時觸發
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        // 防止彈出視窗開啟時移動
+        if (document.getElementById('msg-box').style.display === 'flex') return;
+
+        if (e.repeat) return; // 防止按鍵重複觸發
+
+        let dx = 0, dy = 0;
+        // WASD
+        if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') { dy = -1; }
+        else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') { dy = 1; }
+        else if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') { dx = -1; }
+        else if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') { dx = 1; }
+        else { return; }
+
+        e.preventDefault();
+        if (dx !== 0 || dy !== 0) {
+            simulateBtnPress(dx, dy);
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        let dx = 0, dy = 0;
+        if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') { dy = -1; }
+        else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') { dy = 1; }
+        else if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') { dx = -1; }
+        else if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') { dx = 1; }
+        else { return; }
+
+        e.preventDefault();
+        simulateBtnRelease();
+    });
+
+    // --- 功能按鈕快捷鍵 ---
+    document.addEventListener('keydown', (e) => {
+        // 防止在輸入框中時觸發
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        const key = e.key.toLowerCase();
+        const mapScreen = document.getElementById('map-sc').classList.contains('active');
+        const battleScreen = document.getElementById('battle-sc').classList.contains('active');
+        const msgBoxVisible = document.getElementById('msg-box').style.display === 'flex';
+
+        // 地圖畫面快捷鍵
+        if (mapScreen && !msgBoxVisible) {
+            if (key === 'e') { e.preventDefault(); openCraft(); }
+            else if (key === 't') { e.preventDefault(); openStatus(); }
+            else if (key === 'm') { e.preventDefault(); openSystem(); }
+        }
+
+        // 戰鬥畫面快捷鍵
+        if (battleScreen && !msgBoxVisible && !isActing) {
+            if (key === 'j' || key === ' ') { e.preventDefault(); battleAction('atk'); }
+            else if (key === 'k') { e.preventDefault(); openSkills(); }
+            else if (key === 'i') { e.preventDefault(); openItems(); }
+            else if (key === 'l') { e.preventDefault(); battleAction('run'); }
+        }
+
+        // 系統選單快捷鍵
+        if (msgBoxVisible) {
+            const title = document.getElementById('msg-title').innerText;
+            if (title === '系統選單') {
+                if (key === 's') { e.preventDefault(); saveGame(); }
+            }
+            // 通用：按 Enter 確認、Esc 關閉
+            if (key === 'enter') {
+                e.preventDefault();
+                const confirmBtn = document.querySelector('#msg-btns button');
+                if (confirmBtn) confirmBtn.click();
+            }
+            if (key === 'escape') {
+                e.preventDefault();
+                closeMsg();
+            }
+        }
+    });
 </script>
 </body>
 </html>
